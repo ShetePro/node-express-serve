@@ -37,6 +37,7 @@ export default function initGoodsRouter(app) {
       quantity: goods.quantity,
       totalNum: goods.quantity * goods.price,
       price: goods.price,
+      type: 1,
       createDate: Date.now(),
       operator: req.user.id,
     });
