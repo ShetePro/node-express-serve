@@ -7,6 +7,7 @@ import {
 import { urlPrefix } from "./index.js";
 import { ObjectId } from "mongodb";
 import { getCurrentTimestamp } from "../utils/date.js";
+import { setGoodsProfit, setGoodsSales } from "./utils/goodsUtil.js";
 
 export default function initGoodsRouter(app) {
   // 新增
@@ -25,6 +26,7 @@ export default function initGoodsRouter(app) {
     const collection = getDatabaseCollection("goods");
     const result = await collection.insertOne({
       ...body,
+      sales: 0,
       addUser: req.user?.id,
     });
     const goods = await collection.findOne({
@@ -46,9 +48,14 @@ export default function initGoodsRouter(app) {
   // 商品列表
   app.get(`${urlPrefix}/goodsList`, async (req, res) => {
     const user = req.user;
+    const params = req.params;
     const sort = { createDate: -1 };
+    const query = {
+      addUser: user.id,
+    };
+    query.type = params.brand;
     const collection = getDatabaseCollection("goods");
-    const result = collection.find({ addUser: user.id }).sort(sort);
+    const result = collection.find(query).sort(sort);
     const list = await getMongodbList(result);
     return res.send(successResponse(list));
   });
@@ -93,6 +100,7 @@ export default function initGoodsRouter(app) {
       await setGoodsProfit(body, collection);
     } else {
       body.sellNum = 0;
+      setGoodsSales(body.goodsId, body.quantity).then(() => {});
     }
     await goodsCollection.updateOne(
       {
@@ -165,63 +173,5 @@ export default function initGoodsRouter(app) {
     }
     console.log(statisticsData);
     return res.send(successResponse(statisticsData));
-  });
-}
-export async function setGoodsProfit(body, collection) {
-  let profit = 0;
-  let num = body.quantity;
-  const profitCollection = getDatabaseCollection("goods_profits");
-  const buyRecords = await collection.find({
-    goodsId: body.goodsId,
-    type: 1,
-    $expr: { $ne: ["$quantity", "$sellNum"] },
-  });
-  const sellData = [];
-  for await (const buy of buyRecords) {
-    const { price, sellNum, quantity } = buy;
-    const over = quantity - sellNum;
-    if (over === 0) break;
-    const isOver = num > over; // 是否全部出售
-    const sellPrice = isOver
-      ? over * (body.price - price)
-      : num * (body.price - price);
-    sellData.push({
-      id: buy._id.toString(),
-      price: buy.price,
-      quantity: num > over ? quantity : num,
-      sellPrice,
-    });
-    // 处理入库的商品
-    if (isOver) {
-      profit += sellPrice;
-      num -= over;
-      collection.updateOne(
-        {
-          _id: buy._id,
-        },
-        {
-          $set: { sellNum: Number(quantity) },
-        },
-      );
-    } else {
-      profit += sellPrice;
-      collection.updateOne(
-        {
-          _id: buy._id,
-        },
-        {
-          $set: { sellNum: Number(sellNum + num) },
-        },
-      );
-      break;
-    }
-  }
-  return await profitCollection.insertOne({
-    goodsId: body.goodsId,
-    netProfit: profit,
-    quantity: body.quantity,
-    price: body.price,
-    sellData,
-    createDate: Date.now(),
   });
 }
