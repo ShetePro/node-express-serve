@@ -48,12 +48,12 @@ export default function initGoodsRouter(app) {
   // 商品列表
   app.get(`${urlPrefix}/goodsList`, async (req, res) => {
     const user = req.user;
-    const params = req.params;
+    const params = req.query;
     const sort = { createDate: -1 };
     const query = {
       addUser: user.id,
     };
-    query.type = params.brand;
+    query.brand = params.brand;
     const collection = getDatabaseCollection("goods");
     const result = collection.find(query).sort(sort);
     const list = await getMongodbList(result);
