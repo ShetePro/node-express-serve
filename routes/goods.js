@@ -7,14 +7,18 @@ import {
 import { urlPrefix } from "./index.js";
 import { ObjectId } from "mongodb";
 import { getCurrentTimestamp } from "../utils/date.js";
-import { setGoodsProfit, setGoodsSales } from "./utils/goodsUtil.js";
+import {
+  getGoodsDetailSearch,
+  setGoodsProfit,
+  setGoodsSales,
+} from "./utils/goodsUtil.js";
 
 export default function initGoodsRouter(app) {
   // 新增
   app.post(`${urlPrefix}/goods`, async (req, res) => {
     const body = {
       ...req.body,
-      createDate: Date.toString(),
+      createDate: Date.now(),
     };
     if (!body.goodsName) {
       return res.send({
@@ -45,6 +49,7 @@ export default function initGoodsRouter(app) {
     });
     return res.send(successResponse(goods?._id));
   });
+
   // 商品列表
   app.get(`${urlPrefix}/goodsList`, async (req, res) => {
     const user = req.user;
@@ -53,7 +58,9 @@ export default function initGoodsRouter(app) {
     const query = {
       addUser: user.id,
     };
-    query.brand = params.brand;
+    if (params.brand) {
+      query.brand = params.brand;
+    }
     const collection = getDatabaseCollection("goods");
     const result = collection.find(query).sort(sort);
     const list = await getMongodbList(result);
@@ -64,8 +71,7 @@ export default function initGoodsRouter(app) {
   app.get(`${urlPrefix}/goods/:id`, async (req, res) => {
     const user = req.user;
     const { id } = req.params;
-    const collection = getDatabaseCollection("goods");
-    const result = await collection.findOne({
+    const result = await getGoodsDetailSearch({
       addUser: user.id,
       _id: new ObjectId(id),
     });
@@ -100,6 +106,7 @@ export default function initGoodsRouter(app) {
       await setGoodsProfit(body, collection);
     } else {
       body.sellNum = 0;
+      body.totalNum = body.price * body.quantity;
       setGoodsSales(body.goodsId, body.quantity).then(() => {});
     }
     await goodsCollection.updateOne(
@@ -150,13 +157,12 @@ export default function initGoodsRouter(app) {
     }
     const sort = { createDate: -1 };
     const [startTime, endTime] = getCurrentTimestamp();
-    console.log(startTime, endTime);
     const query = {
       goodsId,
-      // createdDate: {
-      //   $gte: startTime,
-      //   $lte: endTime,
-      // },
+      createDate: {
+        $gte: startTime,
+        $lte: endTime,
+      },
     };
     const statisticsData = {
       sellNum: 0,
@@ -166,12 +172,10 @@ export default function initGoodsRouter(app) {
     const collection = getDatabaseCollection("goods_profits");
     const result = await collection.find(query).sort(sort);
     for await (const record of result) {
-      console.log(record, "record");
       statisticsData.sellNum += record.quantity;
-      statisticsData.sellPrice += record.price * record.quantity;
+      statisticsData.sellPrice += record.totalNum;
       statisticsData.profitPrice += record.netProfit;
     }
-    console.log(statisticsData);
     return res.send(successResponse(statisticsData));
   });
 }
