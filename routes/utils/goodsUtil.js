@@ -58,7 +58,7 @@ export async function setGoodsProfit(body, collection) {
     brand: body.brand,
     quantity: body.quantity,
     price: body.price,
-    totalNum: body.totalNum,
+    totalNum: Number(body.totalNum),
     sellData,
     createDate: Date.now(),
   });

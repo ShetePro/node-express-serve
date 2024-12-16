@@ -1,5 +1,4 @@
 import { getDatabaseCollection } from "../../database/mongodb.js";
-import { ObjectId } from "mongodb";
 import { clear_id } from "../../utils/responseUtil.js";
 import { getCurrentTimestamp } from "../../utils/date.js";
 
@@ -32,6 +31,7 @@ export async function getBrandMonthStatistics(id) {
     },
   });
   for await (const record of result) {
+    console.log(typeof record.totalNum)
     statisticsData.sellNum += record.quantity;
     statisticsData.sellPrice += record.totalNum;
     statisticsData.profitPrice += record.netProfit;
