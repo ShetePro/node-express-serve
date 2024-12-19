@@ -61,6 +61,17 @@ export default function initGoodsRouter(app) {
     if (params.brand) {
       query.brand = params.brand;
     }
+    if (params.goodsName) {
+      query.goodsName = {
+         $regex: params.goodsName, $options: 'i'
+      }
+    }
+    if (params.category) {
+      query.category = {
+        $regex: params.category, $options: 'i'
+      }
+    }
+    console.log(query)
     const collection = getDatabaseCollection("goods");
     const result = collection.find(query).sort(sort);
     const list = await getMongodbList(result);
